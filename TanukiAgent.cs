@@ -6,14 +6,16 @@ using UnityEngine.UI;
 
 public class TanukiAgent : Agent
 {
+    [Header("Ajustes Normalización Giro")]
+    public float maxAngularSpeed = 5.0f; // Para normalizar la rotación
+
     //public Transform sensores;
     float giro = 0.0f;
     bool accel = false;
     bool drift = false;
     Vector3 initialPosition;
     Quaternion initialRotation;
-    public Image accelImage;
-    LongBoardControls longBoardControls;
+    public LongBoardControls longBoardControls;
     float tiempo = 0.0f;
 
 
@@ -21,7 +23,7 @@ public class TanukiAgent : Agent
     {
         if (!longBoardControls.grounded) tiempo += Time.deltaTime;
         if (longBoardControls.grounded) tiempo = 0.0f;
-        if (tiempo >= 2.0f)
+        if (tiempo >= 0.5f)
         {
             SetReward(-1.0f);
             EndEpisode();
@@ -73,59 +75,46 @@ public class TanukiAgent : Agent
     public override void OnActionReceived(ActionBuffers actionBuffers)
     {   //Ejecuta las acciones recibidas
 
-        // Acción continua 
         giro = actionBuffers.ContinuousActions[0];
-
-        // Acciones discretas
         accel = actionBuffers.DiscreteActions[0] == 1;        // Rama 0: accel (0 = no accel, 1 = accel)
         drift = actionBuffers.DiscreteActions[1] == 1;        // Rama 1: drift (0 = no drift, 1 = drift)
 
-        // Recomensa por ir hacia adelante (para que no se quede girando como trompo)
-        float forwardVelocity = Vector3.Dot(longBoardControls.rb.linearVelocity, transform.forward);
-        if (forwardVelocity > 1.0f)
+        float normalizedSpeed = longBoardControls.speed0to1;
+        bool goingForward = longBoardControls.dirDot > 0;
+
+        float angularVelocityY = Mathf.Abs(longBoardControls.rb.angularVelocity.y);
+        float normalizedAngular = Mathf.Clamp01(angularVelocityY / maxAngularSpeed);
+
+        if (goingForward && normalizedSpeed > 0.05f)
         {
-            AddReward(forwardVelocity * 0.001f);
+            AddReward(normalizedSpeed * 0.01f);
         }
-
-        // Recompensa por drift+giro
-        float giroAbs = Mathf.Abs(giro); //quitar signo negativo
-        float angularVelocityY = Mathf.Abs(longBoardControls.rb.angularVelocity.y); //Velocidad angular real (qué tan rápido gira)
-
-        if (drift && giroAbs > 0.3f && angularVelocityY > 0.8f)
+        if (longBoardControls.drifting && normalizedSpeed > 0.3f && normalizedAngular > 0.1f)
         {
-            AddReward(angularVelocityY * 0.1f);
+            AddReward(normalizedAngular * 0.002f);
         }
 
         AddReward(-0.0001f);
-
-
-        if (accelImage != null)
-        {
-            accelImage.fillAmount = n(giro, -1.0f, 1.0f);
-        }
-
-        // Enviar las acciones al controlador
         longBoardControls.SendActions(giro, accel, drift);
     }
 
     private void OnCollisionEnter(Collision collision)
     {
-        /*
-
-        if (collision.gameObject.CompareTag("Car")||)
+        if (collision.gameObject.CompareTag("Obstacle") || (collision.gameObject.CompareTag("Car")))
         {
-            SetReward(-0.5f);
+            SetReward(-1.0f);
+            EndEpisode();
         }
-        */
     }
     public override void Heuristic(in ActionBuffers actionsOut)
     { // Para control manual durante pruebas
         var continuousActionsOut = actionsOut.ContinuousActions;
         var discreteActionsOut = actionsOut.DiscreteActions;
 
-        continuousActionsOut[0] = Input.GetAxis("Horizontal");        // Giro con teclado
-        discreteActionsOut[0] = Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow) ? 1 : 0;         // Accel con tecla W o flecha arriba
-        discreteActionsOut[1] = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? 1 : 0;        // Drift con tecla Shift o botón del gamepad
+        continuousActionsOut[0] = Input.GetAxis("Horizontal");
+        discreteActionsOut[0] = Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow) ? 1 : 0;
+        discreteActionsOut[1] = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? 1 : 0; // Cambiar boton del drift
 
     }
 }
+
