@@ -1,83 +1,81 @@
-﻿using UnityEngine;
+using UnityEngine;
 using Unity.MLAgents;
 using Unity.MLAgents.Sensors;
 using Unity.MLAgents.Actuators;
 using UnityEngine.UI;
+using UnityEngine.Events;
 
 public class TanukiAgent : Agent
 {
-    [Header("Ajustes Normalización Giro")]
-    public float maxAngularSpeed = 5.0f; // Para normalizar la rotación
-
-    //public Transform sensores;
     float giro = 0.0f;
     bool accel = false;
     bool drift = false;
     Vector3 initialPosition;
     Quaternion initialRotation;
-    public LongBoardControls longBoardControls;
+    LongBoardControls longBoardControls;
     float tiempo = 0.0f;
-
+	float maxAngularSpeed = 5.0f; //normalize rotation
+    public UnityEvent onResetTrails;
+		
+    [System.Serializable]
+    public class Rewards
+    {
+        public float fall = -1.0f;
+        public float speed = 0.01f;
+        public float drift = 0.002f;
+        public float giro = -0.001f;
+        public float step = -0.0001f;
+        public float collision = -1.0f;
+        public float finish = 2.0f;
+    }
+    public Rewards rewards = new Rewards();
 
     private void Update()
     {
         if (!longBoardControls.grounded) tiempo += Time.deltaTime;
         if (longBoardControls.grounded) tiempo = 0.0f;
-        if (tiempo >= 0.5f)
+        if (tiempo >= 0.15f)
         {
-            SetReward(-1.0f);
+            SetReward(rewards.fall);
             EndEpisode();
             tiempo = 0.0f;
         }
     }
+
     private float n(float current, float min, float max)
     {
         float value = (current - min) / (max - min);
         return value;
     }
+		
     public override void Initialize()
-    {  // Es como el método Start del agente
+    {  //Start method for agent
         initialPosition = transform.position;
         initialRotation = transform.rotation;
         longBoardControls = GetComponent<LongBoardControls>();
     }
     public override void OnEpisodeBegin()
-    {  // Acciones a realizar al inicio de un episodio de entrenamiento
+    {  // Actions to do at the start of training episode
         transform.position = initialPosition;
         transform.rotation = initialRotation;
         GetComponent<Rigidbody>().linearVelocity = Vector3.zero;
         GetComponent<Rigidbody>().angularVelocity = Vector3.zero;
-        Physics.SyncTransforms(); //reseteando las fisicas y bajando el longboard
+
+        onResetTrails.Invoke();
+
+        Physics.SyncTransforms(); // reset phyisics and lowering longboard height
         longBoardControls.EnableGameplay();
     }
-    public override void CollectObservations(VectorSensor sensor)
-    {  // Recolecta observaciones y arma el vector
-        /*
-        for (int k = 0; k < sensores.childCount; k++) { 
-            Transform sensorK = sensores.GetChild(k);
-            RaycastHit hit;
-            if (Physics.Raycast(sensores.transform.position,
-                                sensorK.forward,
-                                out hit,
-                                100.0f))
-            {
-                sensor.AddObservation(n(hit.distance, 0.0f, 100.0f));
-                Debug.DrawLine(sensores.transform.position,
-                    hit.point, Color.yellow, 0.5f);
-            }
-            else {
-                sensor.AddObservation(1.0f);
-            }
-            
-        }
-        */
+		
+    public override void CollectObservations(VectorSensor sensor) //using the unity sensor defaults (ray and body)
+    {
     }
-    public override void OnActionReceived(ActionBuffers actionBuffers)
-    {   //Ejecuta las acciones recibidas
 
+    public override void OnActionReceived(ActionBuffers actionBuffers)
+    {   //Does the recieved actions
         giro = actionBuffers.ContinuousActions[0];
-        accel = actionBuffers.DiscreteActions[0] == 1;        // Rama 0: accel (0 = no accel, 1 = accel)
-        drift = actionBuffers.DiscreteActions[1] == 1;        // Rama 1: drift (0 = no drift, 1 = drift)
+        accel = actionBuffers.DiscreteActions[0] == 1;      
+        drift = actionBuffers.DiscreteActions[1] == 1;
 
         float normalizedSpeed = longBoardControls.speed0to1;
         bool goingForward = longBoardControls.dirDot > 0;
@@ -85,35 +83,53 @@ public class TanukiAgent : Agent
         float angularVelocityY = Mathf.Abs(longBoardControls.rb.angularVelocity.y);
         float normalizedAngular = Mathf.Clamp01(angularVelocityY / maxAngularSpeed);
 
-        if (goingForward && normalizedSpeed > 0.05f)
+        if (longBoardControls.grounded)
         {
-            AddReward(normalizedSpeed * 0.01f);
+            if (goingForward && normalizedSpeed > 0.05f)
+            {
+                AddReward(normalizedSpeed * rewards.speed);
+            }
+            if (longBoardControls.drifting && normalizedSpeed > 0.3f && normalizedAngular > 0.1f)
+            {
+                AddReward(normalizedAngular * rewards.drift);
+            }
         }
-        if (longBoardControls.drifting && normalizedSpeed > 0.3f && normalizedAngular > 0.1f)
+        if (Mathf.Abs(giro) > 0.0f)
         {
-            AddReward(normalizedAngular * 0.002f);
+            AddReward(rewards.giro * Mathf.Abs(giro));
         }
 
-        AddReward(-0.0001f);
+        AddReward(rewards.step);
         longBoardControls.SendActions(giro, accel, drift);
     }
 
     private void OnCollisionEnter(Collision collision)
     {
-        if (collision.gameObject.CompareTag("Obstacle") || (collision.gameObject.CompareTag("Car")))
+        if (collision.gameObject.CompareTag("Obstacle") || (collision.gameObject.CompareTag("Car")) || (collision.gameObject.CompareTag("Cone")))
         {
-            SetReward(-1.0f);
+            SetReward(rewards.collision);
             EndEpisode();
         }
     }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.name.Contains("TT_FinishTrigger"))
+        {
+            onResetTrails.Invoke();
+            SetReward(rewards.finish);
+            EndEpisode();
+        }
+    }
+
     public override void Heuristic(in ActionBuffers actionsOut)
-    { // Para control manual durante pruebas
+    { // Manual control during testing
         var continuousActionsOut = actionsOut.ContinuousActions;
         var discreteActionsOut = actionsOut.DiscreteActions;
 
         continuousActionsOut[0] = Input.GetAxis("Horizontal");
         discreteActionsOut[0] = Input.GetKey(KeyCode.W) || Input.GetKey(KeyCode.UpArrow) ? 1 : 0;
-        discreteActionsOut[1] = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? 1 : 0; // Cambiar boton del drift
+        discreteActionsOut[1] = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift) ? 1 : 0;
 
     }
 }
