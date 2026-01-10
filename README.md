@@ -1,5 +1,6 @@
 # Tanuki Sunset deep reinforcement learning agent
 *Nov 2025 - Dec 2025*
+
 This project features an autonomous agent trained using deep reinforcement learning (DRL) for a customized version of the game Tanuki Sunset. The agent serves as a real-time racing line assistant, helping players visualize and follow the most approximate efficient trajectory on the track.
 
 
