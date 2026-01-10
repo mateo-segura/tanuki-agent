@@ -1,6 +1,5 @@
 # Tanuki Sunset deep reinforcement learning agent
 *Nov 2025 - Dec 2025*
-
 This project features an autonomous agent trained using deep reinforcement learning (DRL) for a customized version of the game Tanuki Sunset. The agent serves as a real-time racing line assistant, helping players visualize and follow the most approximate efficient trajectory on the track.
 
 
@@ -27,14 +26,18 @@ The learning process was guided by the following incentives:
 * Negative rewards: penalties for collisions (-1.0), falling off the track (-1.0), and time-based penalties to encourage efficiency.
 
 ## Training performance
-The model was trained for 4.5 million steps using the PPO (Proximal Policy Optimization) algorithm. The training focused on maximizing agent efficiency and behavioral stability.
+The model was trained for over 4.5 million steps using the PPO (Proximal Policy Optimization) algorithm, focusing on maximizing agent efficiency and behavioral stability.
 
-<img width="2352" height="1333" alt="Untitled-2025-11-21-1940" src="https://github.com/user-attachments/assets/26d158dc-f087-42a2-882f-c82bafbc2edb" />
+<p align="center"><b>Environment / Cumulative reward</b></p>
 
-The cumulative reward graph shows a clear three-stage learning process:
-- Initial Exploration (0 - 1.2M steps): The agent maintains a low reward (approx. 2.5) while learning basic environment rules.
-- Rapid Improvement (1.2M - 2.5M steps): A sharp upward trend as the model discovers the optimal strategy, jumping from 2.5 to 16.
-- Convergence (2.5M - 4.5M steps): The model stabilizes, reaching a peak reward of approximately 21. Despite minor fluctuations, the consistent high values indicate a successful and stable training outcome.
+![Environment_Cumulative Reward](https://github.com/user-attachments/assets/fb5141f1-ff45-40b6-98cd-65e87ab696e4)
+
+
+### Cumulative reward evolution:
+- Initial exploration (0 - 1.2M steps): Stable reward (~2.5) while learning basic environment rules.
+- Rapid improvement (1.2M - 2.5M steps): Sharp increase to 16 as the model discovers the optimal strategy.
+- Convergence and optimization (2.5M - 4.7M steps): Reward peaks at 21 with minor fluctuations.
+- Terminal performance drop (~4.7M steps): Sudden decline likely due to parameter testing.
 
 ## Key features
 * Autonomous navigation: successfully navigates complex tracks and avoids moving obstacles.
