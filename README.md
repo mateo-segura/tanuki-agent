@@ -33,7 +33,6 @@ The model was trained for over 4.5 million steps using the PPO (Proximal Policy 
 
 ![Environment_Cumulative Reward](https://github.com/user-attachments/assets/fb5141f1-ff45-40b6-98cd-65e87ab696e4)
 
-
 ### Cumulative reward evolution:
 - Initial exploration (0 - 1.2M steps): Stable reward (~2.5) while learning basic environment rules.
 - Rapid improvement (1.2M - 2.5M steps): Sharp increase to 16 as the model discovers the optimal strategy.
